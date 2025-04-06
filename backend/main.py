@@ -5,8 +5,8 @@ from fastapi.responses import JSONResponse
 from datetime import datetime
 import uvicorn
 import os
-from app.api.endpoints import tasks
-from app.db.init_db import init_db
+from backend.app.api.endpoints import tasks, goals, auth
+from backend.app.db.init_db import init_db
 
 app = FastAPI(title="Productivity Plus", version="1.0.0")
 
@@ -16,10 +16,11 @@ init_db()
 # Configure CORS
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],  # In production, replace with specific origins
+    allow_origins=["http://localhost:3000"],  # Frontend URL
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
+    expose_headers=["*"]
 )
 
 # Mount static files
@@ -28,6 +29,8 @@ app.mount("/static", StaticFiles(directory=static_dir), name="static")
 
 # Include routers
 app.include_router(tasks.router, prefix="/api/tasks", tags=["tasks"])
+app.include_router(goals.router, prefix="/api/goals", tags=["goals"])
+app.include_router(auth.router, prefix="/api/auth", tags=["auth"])
 
 @app.get("/")
 async def root():

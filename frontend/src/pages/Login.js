@@ -10,6 +10,7 @@ import {
   Link,
 } from '@mui/material';
 import { useNavigate } from 'react-router-dom';
+import config from '../config';
 
 function Login() {
   const navigate = useNavigate();
@@ -24,12 +25,17 @@ function Login() {
     setError('');
 
     try {
-      const response = await fetch('/api/token', {
+      // Create form data for OAuth2 password flow
+      const formDataObj = new FormData();
+      formDataObj.append('username', formData.email); // OAuth2 expects 'username' field
+      formDataObj.append('password', formData.password);
+
+      const response = await fetch(`${config.API_BASE_URL}/api/auth/token`, {
         method: 'POST',
         headers: {
-          'Content-Type': 'application/json',
+          'Content-Type': 'application/x-www-form-urlencoded',
         },
-        body: JSON.stringify(formData),
+        body: new URLSearchParams(formDataObj),
       });
 
       if (response.ok) {
@@ -38,7 +44,13 @@ function Login() {
         navigate('/');
       } else {
         const errorData = await response.json();
-        setError(errorData.detail || 'Invalid credentials');
+        if (typeof errorData.detail === 'string') {
+          setError(errorData.detail);
+        } else if (errorData.detail && typeof errorData.detail === 'object') {
+          setError(errorData.detail.msg || 'Invalid credentials');
+        } else {
+          setError('Invalid credentials');
+        }
       }
     } catch (error) {
       setError('An error occurred. Please try again.');

@@ -5,11 +5,12 @@ from passlib.context import CryptContext
 from fastapi import Depends, HTTPException, status
 from fastapi.security import OAuth2PasswordBearer
 from sqlalchemy.orm import Session
-from database import get_db
-import models
-import schemas
+from backend.app.db.session import get_db
+from backend.app.models import User
+import backend.app.schemas as schemas
 import os
 from dotenv import load_dotenv
+from backend.app.schemas.token import TokenData
 
 load_dotenv()
 
@@ -28,7 +29,7 @@ def get_password_hash(password):
     return pwd_context.hash(password)
 
 def get_user(db: Session, email: str):
-    return db.query(models.User).filter(models.User.email == email).first()
+    return db.query(User).filter(User.email == email).first()
 
 def authenticate_user(db: Session, email: str, password: str):
     user = get_user(db, email)
@@ -59,7 +60,7 @@ async def get_current_user(token: str = Depends(oauth2_scheme), db: Session = De
         email: str = payload.get("sub")
         if email is None:
             raise credentials_exception
-        token_data = schemas.TokenData(email=email)
+        token_data = TokenData(email=email)
     except JWTError:
         raise credentials_exception
     user = get_user(db, email=token_data.email)
@@ -67,7 +68,7 @@ async def get_current_user(token: str = Depends(oauth2_scheme), db: Session = De
         raise credentials_exception
     return user
 
-async def get_current_active_user(current_user: models.User = Depends(get_current_user)):
+async def get_current_active_user(current_user: User = Depends(get_current_user)):
     if not current_user.is_active:
         raise HTTPException(status_code=400, detail="Inactive user")
     return current_user 

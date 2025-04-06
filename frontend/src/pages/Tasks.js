@@ -21,16 +21,19 @@ import {
   ListItemSecondaryAction,
   IconButton,
   Chip,
+  Alert,
 } from '@mui/material';
 import { DateTimePicker } from '@mui/x-date-pickers';
 import { Delete as DeleteIcon, Edit as EditIcon } from '@mui/icons-material';
 import { format } from 'date-fns';
+import config from '../config';
 
 function Tasks() {
   const [tasks, setTasks] = useState([]);
   const [goals, setGoals] = useState([]);
   const [openDialog, setOpenDialog] = useState(false);
   const [editingTask, setEditingTask] = useState(null);
+  const [error, setError] = useState('');
   const [formData, setFormData] = useState({
     title: '',
     description: '',
@@ -48,21 +51,43 @@ function Tasks() {
 
   const fetchTasks = async () => {
     try {
-      const response = await fetch('/api/tasks/');
+      const token = localStorage.getItem('token');
+      const response = await fetch(`${config.API_BASE_URL}/api/tasks/`, {
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json',
+        },
+      });
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
       const data = await response.json();
       setTasks(data);
+      setError('');
     } catch (error) {
       console.error('Error fetching tasks:', error);
+      setError('Failed to fetch tasks. Please try again later.');
     }
   };
 
   const fetchGoals = async () => {
     try {
-      const response = await fetch('/api/goals/');
+      const token = localStorage.getItem('token');
+      const response = await fetch(`${config.API_BASE_URL}/api/goals/`, {
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json',
+        },
+      });
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
       const data = await response.json();
       setGoals(data);
+      setError('');
     } catch (error) {
       console.error('Error fetching goals:', error);
+      setError('Failed to fetch goals. Please try again later.');
     }
   };
 
@@ -101,37 +126,59 @@ function Tasks() {
   const handleSubmit = async (e) => {
     e.preventDefault();
     try {
+      const token = localStorage.getItem('token');
       const url = editingTask
-        ? `/api/tasks/${editingTask.id}`
-        : '/api/tasks/';
+        ? `${config.API_BASE_URL}/api/tasks/${editingTask.id}`
+        : `${config.API_BASE_URL}/api/tasks/`;
       const method = editingTask ? 'PUT' : 'POST';
+
+      // Format dates to ISO strings
+      const formattedData = {
+        ...formData,
+        due_date: formData.due_date.toISOString(),
+        start_time: formData.start_time.toISOString(),
+        end_time: formData.end_time.toISOString(),
+        goal_id: formData.goal_id || null, // Convert empty string to null
+      };
 
       const response = await fetch(url, {
         method,
         headers: {
+          'Authorization': `Bearer ${token}`,
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify(formData),
+        body: JSON.stringify(formattedData),
       });
 
-      if (response.ok) {
-        fetchTasks();
-        handleCloseDialog();
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.detail || `HTTP error! status: ${response.status}`);
       }
+
+      fetchTasks();
+      handleCloseDialog();
     } catch (error) {
       console.error('Error saving task:', error);
+      setError(error.message || 'Error saving task. Please try again.');
     }
   };
 
   const handleDeleteTask = async (taskId) => {
     try {
-      const response = await fetch(`/api/tasks/${taskId}`, {
+      const token = localStorage.getItem('token');
+      const response = await fetch(`${config.API_BASE_URL}/api/tasks/${taskId}`, {
         method: 'DELETE',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json',
+        },
       });
 
-      if (response.ok) {
-        fetchTasks();
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
       }
+
+      fetchTasks();
     } catch (error) {
       console.error('Error deleting task:', error);
     }
@@ -139,13 +186,20 @@ function Tasks() {
 
   const handleCompleteTask = async (taskId) => {
     try {
-      const response = await fetch(`/api/tasks/${taskId}/complete`, {
+      const token = localStorage.getItem('token');
+      const response = await fetch(`${config.API_BASE_URL}/api/tasks/${taskId}/complete`, {
         method: 'PUT',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json',
+        },
       });
 
-      if (response.ok) {
-        fetchTasks();
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
       }
+
+      fetchTasks();
     } catch (error) {
       console.error('Error completing task:', error);
     }
@@ -163,6 +217,12 @@ function Tasks() {
           Add Task
         </Button>
       </Box>
+
+      {error && (
+        <Alert severity="error" sx={{ mb: 2 }}>
+          {error}
+        </Alert>
+      )}
 
       <Grid container spacing={3}>
         {tasks.map((task) => (

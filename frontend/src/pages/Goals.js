@@ -22,6 +22,7 @@ import {
 import { DateTimePicker } from '@mui/x-date-pickers';
 import { Delete as DeleteIcon, Edit as EditIcon } from '@mui/icons-material';
 import { format } from 'date-fns';
+import config from '../config';
 
 function Goals() {
   const [goals, setGoals] = useState([]);
@@ -40,7 +41,16 @@ function Goals() {
 
   const fetchGoals = async () => {
     try {
-      const response = await fetch('/api/goals/');
+      const token = localStorage.getItem('token');
+      const response = await fetch(`${config.API_BASE_URL}/api/goals/`, {
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json',
+        },
+      });
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
       const data = await response.json();
       setGoals(data);
     } catch (error) {
@@ -77,23 +87,35 @@ function Goals() {
   const handleSubmit = async (e) => {
     e.preventDefault();
     try {
+      const token = localStorage.getItem('token');
       const url = editingGoal
-        ? `/api/goals/${editingGoal.id}`
-        : '/api/goals/';
+        ? `${config.API_BASE_URL}/api/goals/${editingGoal.id}`
+        : `${config.API_BASE_URL}/api/goals/`;
       const method = editingGoal ? 'PUT' : 'POST';
+
+      // Format the data before sending
+      const formattedData = {
+        ...formData,
+        goal_type: formData.goal_type.toLowerCase(),
+        target_date: formData.target_date.toISOString()
+      };
 
       const response = await fetch(url, {
         method,
         headers: {
+          'Authorization': `Bearer ${token}`,
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify(formData),
+        body: JSON.stringify(formattedData),
       });
 
-      if (response.ok) {
-        fetchGoals();
-        handleCloseDialog();
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.detail || `HTTP error! status: ${response.status}`);
       }
+
+      fetchGoals();
+      handleCloseDialog();
     } catch (error) {
       console.error('Error saving goal:', error);
     }
@@ -101,13 +123,20 @@ function Goals() {
 
   const handleDeleteGoal = async (goalId) => {
     try {
-      const response = await fetch(`/api/goals/${goalId}`, {
+      const token = localStorage.getItem('token');
+      const response = await fetch(`${config.API_BASE_URL}/api/goals/${goalId}`, {
         method: 'DELETE',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json',
+        },
       });
 
-      if (response.ok) {
-        fetchGoals();
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
       }
+
+      fetchGoals();
     } catch (error) {
       console.error('Error deleting goal:', error);
     }
@@ -229,7 +258,7 @@ function Goals() {
                 />
               </Grid>
               <Grid item xs={12}>
-                <FormControl fullWidth>
+                <FormControl fullWidth required>
                   <InputLabel>Goal Type</InputLabel>
                   <Select
                     value={formData.goal_type}

@@ -10,6 +10,7 @@ import {
   Link,
 } from '@mui/material';
 import { useNavigate } from 'react-router-dom';
+import config from '../config';
 
 function Register() {
   const navigate = useNavigate();
@@ -29,8 +30,15 @@ function Register() {
       return;
     }
 
+    // Validate email format
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(formData.email)) {
+      setError('Please enter a valid email address');
+      return;
+    }
+
     try {
-      const response = await fetch('/api/register', {
+      const response = await fetch(`${config.API_BASE_URL}/api/auth/register`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -45,7 +53,13 @@ function Register() {
         navigate('/login');
       } else {
         const errorData = await response.json();
-        setError(errorData.detail || 'Registration failed');
+        if (typeof errorData.detail === 'string') {
+          setError(errorData.detail);
+        } else if (errorData.detail && typeof errorData.detail === 'object') {
+          setError(errorData.detail.msg || 'Registration failed');
+        } else {
+          setError('Registration failed');
+        }
       }
     } catch (error) {
       setError('An error occurred. Please try again.');
